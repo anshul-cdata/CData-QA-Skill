@@ -260,11 +260,11 @@ The reason: the API docs are the ground truth. The RSD is what someone claimed t
 
 **Correct order:**
 ```
-Phase 3c — Extract RSD claims (read only, no validation yet)
+Phase 3c — Extract RSD claims (read only, no validation yet) — ONLY if the user provided an RSD
      ↓
 Phase 4  — Fetch API docs (OpenAPI / WSDL / human docs) — THIS is the ground truth
      ↓
-Phase 3d — Compare RSD claims against API docs → find discrepancies
+Phase 3d — Compare RSD claims against API docs → find discrepancies — ONLY if Phase 3c ran
      ↓
 Phase 4e — Generate SQL query plan from API docs (not from RSD)
      ↓
@@ -338,7 +338,7 @@ Look for any `<api:set>` that references a multi-value or include-style query pa
 
 ### Step 3c-3 — What to do after extracting
 
-Do not validate anything yet. Store the RSD claims table from Step 3c-2 and proceed to **Phase 4** to fetch the API docs. Validation of every RSD claim happens in **Phase 3d** after Phase 4 completes.
+Do not validate anything yet. Store the RSD claims table from Step 3c-2 and proceed to **Phase 4** to fetch the API docs. Validation of every RSD claim happens in **Phase 3d** after Phase 4 completes. (If no RSD was provided, there are no claims to store — go straight to Phase 4.)
 
 ---
 
@@ -518,9 +518,9 @@ If the API docs list no filterable parameters at all (pure read-only list with n
 
 ---
 
-## Phase 3d — RSD validation against API docs (all table types — always run after Phase 4)
+## Phase 3d — RSD validation against API docs (only when an RSD was extracted in Phase 3c)
 
-**This phase always runs after Phase 4, for every table type. Never skip it.**
+**Run this phase after Phase 4 only if Phase 3c extracted an RSD (user-provided APIP file or RSD folder/file). If no RSD was provided — dynamic tables, or the user simply gave none — skip Phase 3d entirely, do not produce the RSD validation report, and proceed directly to Phase 4e. In that case the query plan's `RSD Status` column is `RSD: not provided` for every row.**
 
 Now that you have the API docs ground truth from Phase 4, compare every RSD claim extracted in Phase 3c against what the API actually supports. The §4d filterable fields table is your reference — it is what is true. The RSD claims table is what someone said is true. Find every gap between them.
 
@@ -631,7 +631,7 @@ Endpoint:          MATCH
 - Type mismatch → driver may send wrongly-typed value; API may silently ignore or return 400
 - Missed include param → driver will slice unnecessarily; file as performance improvement
 
-**After sharing the report, proceed to Phase 4e.** The query plan is generated from the §4d API docs table — not from the RSD. Fields the RSD missed (underclaimed) are still in the query plan because the API supports them. Fields the RSD overclaimed are also still tested — Phase 5 will confirm whether the driver actually pushes them or not.
+**After sharing the report (or immediately after Phase 4 if Phase 3d was skipped because no RSD was provided), proceed to Phase 4e.** The query plan is generated from the §4d API docs table — not from the RSD. Fields the RSD missed (underclaimed) are still in the query plan because the API supports them. Fields the RSD overclaimed are also still tested — Phase 5 will confirm whether the driver actually pushes them or not.
 
 ---
 
@@ -641,7 +641,7 @@ Before running any queries, convert every row in the **§4d API docs filterable 
 
 **Critical rule — query plan comes from API docs only, never from the RSD.**
 
-The query plan is generated entirely from the §4d filterable fields table, which was built from the official API documentation. The RSD is used only for comparison in Phase 3d. A field missing from the RSD, or marked `filterable="false"` in the RSD, is still included in the query plan if the API docs say the field is a valid filter param.
+The query plan is generated entirely from the §4d filterable fields table, which was built from the official API documentation. The RSD, when one was provided, is used only for comparison in Phase 3d. A field missing from the RSD, or marked `filterable="false"` in the RSD, is still included in the query plan if the API docs say the field is a valid filter param.
 
 Every field the API supports as a server-side filter must appear in the query plan and must be executed in Phase 5 — regardless of whether the RSD exposes it as a JDBC column or marks it as filterable. Specifically:
 
@@ -650,7 +650,7 @@ Every field the API supports as a server-side filter must appear in the query pl
 - **Fields in §4d that are NOT in the RSD at all (missing from driver)** → generate the query and attempt to run it; expected result is either a column-not-found error or client-side filtering — document which; this is a driver gap
 - **Fields in the RSD marked filterable but NOT in §4d (overclaimed)** → still generate and run the query; expect the filter to be silently ignored by the API — runtime confirmation of the RSD overclaim
 
-The only source that determines what goes into the query plan is §4d. The RSD is checked for comparison in Phase 3d but never gates what gets tested.
+The only source that determines what goes into the query plan is §4d. The RSD, if provided, is checked for comparison in Phase 3d but never gates what gets tested. With no RSD, the plan is built exactly the same way from §4d.
 
 **Do not only test `WHERE field = 'value'`.** Every API-documented semantic gets its own query row.
 
@@ -787,7 +787,7 @@ Add PP-1 through PP-3 rows to the §4e test query plan for **every column confir
 
 Produce this table and share it with the user before running anything. One row per query — not per field.
 
-The `RSD Status` column records what the RSD says about this field — this is for traceability only and never gates whether the query is run. Every row runs regardless of RSD status.
+The `RSD Status` column records what the RSD says about this field — this is for traceability only and never gates whether the query is run. Every row runs regardless of RSD status. When no RSD was provided (Phase 3c/3d skipped), set the column to `RSD: not provided` on every row and ignore the RSD-comparison variants below.
 
 ```
 Test Query Plan — <DriverName> — Table: <TableName>
@@ -805,6 +805,7 @@ Source: API docs (§4d) — <spec URL>
 ```
 
 **RSD Status values used in the column:**
+- `RSD: not provided` — no RSD supplied (dynamic table, or user gave none); Phase 3c/3d skipped; test the query normally and judge it only on pushdown vs. API docs
 - `RSD: filterable (MATCH)` — RSD and API docs agree this is filterable
 - `RSD: NOT filterable (UNDERCLAIMED — test anyway)` — API supports it, RSD doesn't claim it; test to see if driver pushes it anyway
 - `RSD: filterable but API has no such param (OVERCLAIMED)` — RSD claims filterable, API docs say no; test to confirm API ignores the filter
@@ -899,6 +900,8 @@ For each test, note:
 **When checking the outgoing URL, use the API param name from the §4e plan — not the JDBC column name.**
 
 **Special handling by RSD status:**
+
+- **RSD: not provided** — run normally; expect pushdown per the API docs; PASS if the filter is in the outgoing request and the result count changes, FAIL if not. If the driver pushes a param not in the API docs, classify per §4g (UNDOCUMENTED). If the column doesn't exist in the driver, mark GAP. No OVERCLAIMED / UNDERCLAIMED labels apply.
 
 - **RSD: filterable (MATCH)** — run normally; expect pushdown; FAIL if filter not in outgoing request
 - **RSD: NOT filterable (UNDERCLAIMED)** — run the query; if the JDBC column exists and the driver pushes the filter anyway, that is a hidden capability — mark as UNDERCLAIMED PASS (driver pushes but RSD doesn't claim it); if filter not pushed, mark as UNDERCLAIMED FAIL (driver missed an opportunity the API supports)
@@ -1022,6 +1025,7 @@ Source: <vendor API docs URL>
 - UNDERCLAIMED FAIL — RSD doesn't claim this field as filterable and driver doesn't push it either; API supports it but driver misses it entirely; file as missing pushdown bug
 - OVERCLAIMED — RSD claims filterable but API has no such param; driver sends it, API ignores it; file as RSD overclaim bug
 - UNDOCUMENTED — driver pushes a param not listed in official API docs; filtering works in live test but param is undocumented and may be removed; file for vendor confirmation
+- Note: when no RSD was provided, the UNDERCLAIMED / OVERCLAIMED results do not apply — use PASS / FAIL / PARTIAL / UNDOCUMENTED / GAP only, and set the RSD Status column to `RSD: not provided`.
 - GAP — field not exposed as JDBC column at all; query errored or returned unfiltered results; file as missing column bug
 
 ### Combination results (AND / OR)
