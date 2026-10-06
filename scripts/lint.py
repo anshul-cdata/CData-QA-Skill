@@ -33,7 +33,8 @@ for p in [root / "SKILL.md", *wf.values()]:
 for name, p in wf.items():
     text = p.read_text(encoding="utf-8")
     heads = " ".join(re.findall(r"^#{1,4} .*$", text, re.M))
-    declared = set(re.findall(r"Phase (\d+[a-z]?)\b", heads))
+    declared = set(re.findall(r"Phase (\d+[a-z]?)\b", heads)) | set(
+        re.findall(r"^#{2,5} (\d+[a-z])\b", text, re.M))
     for ref in set(re.findall(r"Phase (\d+[a-z]?)\b", text)) - declared:
         # only flag if the file has phases at all
         if declared:
