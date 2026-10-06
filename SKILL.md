@@ -12,7 +12,8 @@ description: >
     /auth            — AuthScheme + PRP end-to-end validation
     /cud             — INSERT / UPDATE / DELETE testing (API drivers)
     /sp              — stored procedure validation (RSB+metadata dual discovery, negative type tests)
-    /general-testing — column/data validation: SELECT *, operators by data type
+    /general-testing — column/data validation: SELECT * baseline (all rows or first 1000), operators by data type,
+                       optional target columns with all important operators
     /perf            — performance analysis: 15-check log pattern detection
     /usage           — show cumulative token usage and cost report across all sessions (auto-logged per command; in-chat markdown summary + terminal box)
 
@@ -139,7 +140,7 @@ in this order within the same session.
 | `/auth` | AuthScheme + PRP validation | `workflows/auth.md` |
 | `/cud` | CUD testing (API drivers) | `workflows/cud.md` |
 | `/sp` | Stored procedure validation | `workflows/sp.md` |
-| `/general-testing` | General column/data validation | `workflows/general-testing.md` |
+| `/general-testing` | General column/data validation — asks upfront for baseline scope (all data or first 1000 rows, recommended for large tables) and optional specific column(s) to test with all important operators; sample mode uses containment checks instead of count checks | `workflows/general-testing.md` |
 | `/perf` | Performance analysis | `workflows/perf.md` |
 | `/usage` | Token/cost usage report | Read `workflows/token-tracker.md`, run `Show-UsageReport`, then parse the `CLAUDE_USAGE_JSON:` line from output and present the in-chat markdown summary as described in that file. No Phase 0, no driver connection. |
 
