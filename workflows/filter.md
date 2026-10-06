@@ -236,13 +236,19 @@ If no issues are found, say: "Mapping looks clean — all JDBC columns have a di
 
 ---
 
-## Phase 3c — RSD extraction (all table types — always run)
+## Phase 3c — RSD extraction (only when the user provides an RSD)
 
-**This phase runs for every table, regardless of whether the driver uses an APIP file, a built-in RSD folder, or any other schema source. Never skip this phase.**
+**Run this phase only when the user provides an RSD source (APIP file or RSD folder/file path). If none is provided, skip it and go straight to Phase 4.** Do not assume every table has an RSD:
+
+- **Dynamic tables** have no RSD file at all — schema is discovered at runtime. Skip this phase.
+- **Semi-dynamic tables** have an RSD named `<tablename>{internal}.rsd` (note the `{internal}` suffix in the filename). When the user provides an RSD folder, look for this form as well as plain `<tablename>.rsd`.
+- **Static tables** have a plain `<tablename>.rsd`.
+
+When an RSD is provided:
 
 - **APIP file:** extract from the `.apip` ZIP archive (see Step 3c-1 below).
-- **Built-in RSD folder (e.g. HubSpot, Salesforce JDBC):** read the `.rsd` file directly from the driver's `db/<schema>/` folder. The user's RSD folder path is either stored in memory or should be asked for once and saved.
-- **No accessible RSD:** note that and proceed — Phase 4 (API docs) is still mandatory and the query plan still comes from there.
+- **RSD folder (e.g. HubSpot, Salesforce JDBC):** read the `.rsd` file directly from the driver's `db/<schema>/` folder (matching `<tablename>.rsd` or `<tablename>{internal}.rsd`). The user's RSD folder path is either stored in memory or should be asked for once and saved.
+- **RSD path given but file not found:** note that and proceed — Phase 4 (API docs) is still mandatory and the query plan still comes from there.
 
 ---
 
