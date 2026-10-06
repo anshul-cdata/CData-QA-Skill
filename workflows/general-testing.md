@@ -360,10 +360,12 @@ Baseline mode: <FULL | SAMPLE_1000>   (N/A = count/complement checks not valid o
 
 ## Appendix — Common failure patterns
 
+Patterns marked **(FULL only)** rely on a complete baseline and do not apply in `SAMPLE_1000` mode — use the sample-mode patterns below instead.
+
 | Symptom | What it means |
 |---------|---------------|
-| `=` returns more rows than baseline | Driver is ignoring the WHERE clause — client-side passthrough bug |
-| `count(=val) + count(!=val)` << baseline | Some rows are hidden by both filters — driver-side evaluation inconsistency |
+| **(FULL only)** `=` returns more rows than baseline | Driver is ignoring the WHERE clause — client-side passthrough bug |
+| **(FULL only)** `count(=val) + count(!=val)` << baseline | Some rows are hidden by both filters — driver-side evaluation inconsistency |
 | `IN ('a','b')` returns only rows matching `'a'` | Driver serializes only first IN-list value — partial pushdown bug |
 | `LIKE '%foo%'` returns `[SQL_ERR]` | Driver does not support LIKE for this column type — note as operator gap |
 | Solo `SELECT <Col>` count differs from `SELECT *` count | Pagination or lazy-loading inconsistency — file as data consistency bug |
@@ -371,6 +373,21 @@ Baseline mode: <FULL | SAMPLE_1000>   (N/A = count/complement checks not valid o
 | Timestamp column rejects ISO 8601 format | Try `YYYY-MM-DD` short form; note accepted format in report |
 | Boolean `= true` returns 0 rows but baseline has booleans | Driver may require `= 'true'` (string) or `= 1` (int) — test all variants |
 | `IS NULL` returns non-null rows | Driver is not mapping SQL `IS NULL` to an API-level null filter — client-side only |
+
+### Sample-mode (`SAMPLE_1000`) failure patterns
+
+| Symptom | What it means |
+|---------|---------------|
+| Filtered result is missing sample rows that satisfy the predicate (`❌ MISSING ROWS`) | Driver dropped matching rows — wrong server-side param, paging cut-off, or case/format mismatch in the filter value. Re-run the query with the exact sample value and compare the missing rows' column values to the filter |
+| Filtered count > 1000 or > sample size | **Not a bug** — filters run against the full table. Do not flag `COUNT ANOMALY` in sample mode |
+| `count(=val) + count(!=val)` ≠ sample size | **Not a bug** in sample mode — complement check is N/A. Only investigate if a returned row violates the predicate |
+| Returned row violates the predicate (e.g. `=` result contains another value) | Valid in both modes — driver ignored or mis-applied the filter. Always a bug |
+| Solo `SELECT <Col> LIMIT 1000` returns different rows than `SELECT * LIMIT 1000` | Row order is not stable without `ORDER BY` — the two 1000-row windows differ. Re-compare using the key column (or add `ORDER BY <key>` to both) before flagging inconsistency |
+| Solo and `SELECT *` sample counts differ (< 1000 vs 1000) | Real inconsistency — pagination or lazy-loading issue; file as data consistency bug |
+| Sample value picked from the 1000 rows is rare/unique and filtered query returns 0 rows | Possible filter-value format mismatch (e.g. timestamp precision, trailing spaces, casing) — retry with a second sample value before filing |
+| Column is all `__NULL__` in the 1000-row sample | Mark `⚪ SKIPPED (no data in sample)` — it may have data further in the table; offer to rerun with `FULL` or a larger limit |
+| Boolean or low-cardinality column has only one value in the sample | Only that operator can be fully verified; mark the other (e.g. `= false`) `⚪ SKIPPED (value absent from sample)` rather than FAIL |
+| Target column behaves differently on later-sample runs | Sample window is unstable (no `ORDER BY`) — pin the window with `ORDER BY <key>` and re-run |
 
 
 ---
