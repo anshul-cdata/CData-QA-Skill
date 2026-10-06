@@ -28,6 +28,7 @@ Ask for **all** of the following before writing any code:
 | **JAR folder path** | Folder with the driver `.jar` and `.lic` file |
 | **Table name** | Which table to validate |
 | **Baseline scope** | Ask together with the table name: *"Do you want the baseline to query **all** the data, or only the first **1000** rows?"* Recommend **1000** for large tables — it keeps the run fast and all filter tests are built from those rows. Store the answer as `BASELINE_MODE` = `FULL` or `SAMPLE_1000` (if the user gives another number, use it as the limit). |
+| **Specific column(s)** *(optional)* | Ask together with the table name: *"Do you want any specific column(s) tested? If so, name them and I will test **all important operators** for each."* Store as `TARGET_COLUMNS` (empty = default coverage). |
 | **RSD folder** *(optional)* | Path to `.rsd` files for this table — used to cross-check column metadata |
 
 Verify the JAR folder:
@@ -187,6 +188,8 @@ In `SAMPLE_1000` mode, append `LIMIT 1000` to these queries so they are compared
 
 ## Phase 4 — Operator coverage by data type
 
+**Targeted columns:** if the user named `TARGET_COLUMNS` in Phase 0, then for each named column run **every** operator row in the matching 4A–4D table for its data type (all important operators — `=`, `!=`, `IN`, `NOT IN`, `LIKE`, comparison operators, `BETWEEN`, `IS NULL` / `IS NOT NULL`, boolean true/false as applicable), using more than one sample value where available (e.g. a frequent value, a rare value, a boundary value). If a named column does not exist, report it as `❌ MISSING COLUMN` and continue. These columns are also used as the "Column Used" for their type in the 4E coverage matrix. Other columns still get the default coverage below unless the user said to test only the named columns.
+
 For every data type found in Phase 2, run the tests below. Use the sample values from
 Phase 2 as test inputs. If no sample value exists for a column, mark the test as
 `⚪ SKIPPED (no data)`.
@@ -297,12 +300,14 @@ Driver  : <DriverName> JDBC
 Table   : <TableName>    Date: <date>
 
 Baseline SELECT *
+  Mode        : FULL  |  SAMPLE_1000 (first 1000 rows — filters validated against the sample)
   Columns     : <N>
-  Row count   : <N>
+  Row count   : <N>   (SAMPLE_1000: rows in the sample, NOT the table's total size)
   Null columns: <list or "none">
+  Target cols : <TARGET_COLUMNS or "none — default coverage">
 
 ═══ COLUMN CONSISTENCY ════════════════════════════════════════
-Column      | Type      | Solo SELECT Count | Baseline Count | Result
+Column      | Type      | Solo SELECT Count | Baseline Count | Result   (SAMPLE_1000: solo run with LIMIT 1000)
 ─────────── | ───────── | ─────────────────┤ ──────────────┤ ──────
 Id          | VARCHAR   | 25               | 25             | ✅ CONSISTENT
 Amount      | DOUBLE    | 24               | 25             | ❌ INCONSISTENCY (delta=1)
@@ -311,7 +316,7 @@ Amount      | DOUBLE    | 24               | 25             | ❌ INCONSISTENCY 
 ═══ OPERATOR COVERAGE ════════════════════════════════════════
 Type      | Column   | Operator | SQL (abbreviated)              | Rows | Result
 ───────── | ──────── | ──────── | ────────────────────────────── | ──── | ──────
-VARCHAR   | Status   | =        | WHERE Status='active'          | 10   | ✅ PASS
+VARCHAR   | Status   | =        | WHERE Status='active'          | 10   | ✅ PASS   ← target column: all operators run
 VARCHAR   | Status   | !=       | WHERE Status!='active'         | 15   | ✅ PASS
 VARCHAR   | Status   | IN       | WHERE Status IN('a','b')       | 18   | ✅ PASS
 VARCHAR   | Status   | NOT IN   | WHERE Status NOT IN('a')       | 15   | ✅ PASS
@@ -324,6 +329,13 @@ TIMESTAMP | CreatedAt| >        | WHERE CreatedAt>'2024-01-01'   | 12   | ✅ PA
 BOOLEAN   | IsActive | =true    | WHERE IsActive=true            | 14   | ✅ PASS
 BOOLEAN   | IsActive | =false   | WHERE IsActive=false           | 11   | ✅ PASS
 ...
+
+═══ SAMPLE-MODE CHECKS (SAMPLE_1000 only — omit in FULL mode) ═══
+Query                          | Count ≤ baseline | = + != complement | Containment (sample rows ⊆ result) | Result
+────────────────────────────── | ──────────────── | ───────────────── | ────────────────────────────────── | ──────
+WHERE Status='active'          | N/A              | N/A               | 10 of 10 expected rows present     | ✅ PASS
+WHERE Amount>10.0              | N/A              | N/A               | 19 of 20 expected rows present     | ❌ MISSING ROWS (1)
+Note: counts are not compared with the sample size because filtered queries run against the full table. Containment = every sample row that satisfies the predicate (evaluated locally) must appear in the filtered result.
 
 ═══ BUGS ══════════════════════════════════════════════════════
 # | Column  | Operator | Description                        | Severity
@@ -339,7 +351,8 @@ DOUBLE    | ✅ Yes  | Amount
 TIMESTAMP | ✅ Yes  | CreatedAt
 BOOLEAN   | ✅ Yes  | IsActive
 
-Summary: PASS <N> / FAIL <N> / SKIPPED <N>   Bugs: <N>
+Summary: PASS <N> / FAIL <N> / SKIPPED <N> / N/A <N>   Bugs: <N>
+Baseline mode: <FULL | SAMPLE_1000>   (N/A = count/complement checks not valid on a sample baseline)
 ═══════════════════════════════════════════════════════════════
 ```
 
