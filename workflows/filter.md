@@ -296,7 +296,7 @@ find "$EXTRACT_PATH" -name "*.rsd"
 
 Locate the `.rsd` file whose name matches the table being tested (e.g. `Accounts.rsd`, `Contacts.rsd`). If no exact match, look for a partial match or check inside subdirectories.
 
-**For built-in RSD folder drivers** — read the `.rsd` file directly using the Read tool. The path is `<rsd_folder>\<TableName>.rsd`. If the table has no dedicated RSD (e.g. it uses a shared internal RSD like `PipelinesInternal.rsd`), read the internal RSD instead — the driver's own `sys_tablecolumns` query or a previous baseline run will reveal which backing RSD applies.
+**For built-in RSD folder drivers** — read the `.rsd` file directly using the Read tool. The path is `<rsd_folder>\<TableName>.rsd` (or `<rsd_folder>\<TableName>{internal}.rsd` for semi-dynamic tables). If the table has no dedicated RSD (e.g. it uses a shared internal RSD like `PipelinesInternal.rsd`), read the internal RSD instead — the driver's own `sys_tablecolumns` query or a previous baseline run will reveal which backing RSD applies.
 
 ---
 
@@ -1117,6 +1117,8 @@ If log-based validation is not possible (e.g. HTTPS tunneling through a corporat
 ---
 
 ## Appendix C — Common failure patterns and their meaning
+
+> Rows below that blame the "RSD" apply only when an RSD was provided. With no RSD (dynamic tables, or none supplied), read "RSD bug" as a bug in the driver/profile's request mapping — the symptom and the fix target (param name, serialization, type, endpoint) are the same.
 
 | Symptom | What it means |
 |---|---|

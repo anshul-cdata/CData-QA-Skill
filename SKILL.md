@@ -30,6 +30,8 @@ description: >
 
 # CData QA — Unified Skill
 
+> **Version:** 1.1.0 — see [CHANGELOG.md](CHANGELOG.md) for what changed.
+
 ---
 
 ## 🚀 How to use this skill
@@ -51,7 +53,7 @@ and use RSD/RSB schema files.
 | OAuth / AuthScheme / PRP connection properties | `/auth` |
 | INSERT / UPDATE / DELETE operations | `/cud` |
 | Stored procedures (RSB files, endpoint routing) | `/sp` |
-| Column data validation, all operators by type | `/columns` |
+| Column data validation, all operators by type | `/general-testing` |
 | API call count, N+1, LIMIT pushdown, pagination | `/perf` |
 
 **Step 2 — Type the command**, e.g. `/filter`

@@ -7,7 +7,7 @@ description: >
   Validates result consistency between filtered and unfiltered results.
 ---
 
-# Column Validation (`/columns`)
+# Column Validation (`/general-testing`)
 
 Validates that a CData JDBC driver table returns correct, consistent data for:
 - Full `SELECT *`
