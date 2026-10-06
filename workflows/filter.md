@@ -1024,6 +1024,40 @@ Source: <vendor API docs URL>
 - UNDOCUMENTED — driver pushes a param not listed in official API docs; filtering works in live test but param is undocumented and may be removed; file for vendor confirmation
 - GAP — field not exposed as JDBC column at all; query errored or returned unfiltered results; file as missing column bug
 
+### Combination results (AND / OR)
+
+After the per-query summary table, add a combination results section covering every `C*` row run in §5d. Skip it only if the combination phase was skipped (fewer than 2 server-side filterable columns) — say so explicitly.
+
+```
+Combination Results — <DriverName> — Table: <TableName>
+Server-side filterable columns tested: <colA, colB, colC, ...>  (<n> columns; <n> pairs generated, <n> run)
+
+| Plan # | Group | Columns        | Operator   | SQL Query (abbreviated)                | Expected in request | Actual in request          | Rows returned | Rows satisfy WHERE? | Count check | Result  |
+|--------|-------|----------------|------------|----------------------------------------|---------------------|----------------------------|---------------|---------------------|-------------|---------|
+| C1.1   | C1    | colA, colB     | AND        | WHERE colA = 1 AND colB = 2            | ?colA=1&colB=2      | ?colA=1&colB=2             | 4             | Yes                 | OK          | PASS    |
+| C1.2   | C1    | colA, colC     | AND        | WHERE colA = 1 AND colC = 'x'          | ?colA=1&colC=x      | ?colA=1 (colC client-side) | 3             | Yes                 | OK          | PARTIAL |
+| C3.1   | C3    | colA, colB     | OR         | WHERE colA = 1 OR colB = 2             | no push / OR form   | ?colA=1 (colB dropped)     | 5             | No                  | FAIL        | FAIL    |
+| C5.1   | C5    | colA, colNF    | AND        | WHERE colA = 1 AND colNF = 'y'         | ?colA=1 only        | ?colA=1                    | 2             | Yes                 | OK          | PASS    |
+| C7.1   | C7    | colA           | AND        | WHERE colA = 1 AND colA = 2            | 0 rows, no error    | n/a                        | 0             | Yes                 | OK          | PASS    |
+```
+
+Then add a short roll-up per operator:
+
+| Operator | Run | PASS | PARTIAL | FAIL | DOCUMENTED LIMIT |
+|---|---|---|---|---|---|
+| AND | `<n>` | `<n>` | `<n>` | `<n>` | `<n>` |
+| OR | `<n>` | `<n>` | `<n>` | `<n>` | `<n>` |
+| Mixed AND/OR | `<n>` | `<n>` | `<n>` | `<n>` | `<n>` |
+
+For every FAIL or PARTIAL row, write a finding block in the same format as the per-field findings above, with these extra fields:
+
+- **Failure type:** `condition dropped` / `wrong rows returned` / `missed pushdown (client-side)` / `driver error`
+- **Which condition failed to push:** `<column / API param>`
+- **Evidence:** outgoing request plus the first returned row that violates the WHERE clause (if any)
+- **Severity:** High if wrong rows are returned or a condition is silently dropped (data correctness); Medium for missed pushdown with correct rows.
+
+Combination result definitions follow §5d: PASS, PARTIAL, FAIL, DOCUMENTED LIMIT. A combination row can only be PASS if the returned rows satisfy the full WHERE clause, regardless of what was pushed.
+
 ---
 
 ## Appendix A — Reading the driver log efficiently
