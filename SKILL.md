@@ -7,7 +7,8 @@ description: >
   "performance analysis", "QueryPassThrough", "db driver testing", "QPT testing").
 
   API driver commands (REST/SOAP sources):
-    /filter          — server-side filter pushdown validation
+    /filter          — server-side filter pushdown validation (single-column + AND/OR combination testing;
+                       RSD validation only when an RSD is provided — dynamic tables have none)
     /auth            — AuthScheme + PRP end-to-end validation
     /cud             — INSERT / UPDATE / DELETE testing (API drivers)
     /sp              — stored procedure validation (RSB+metadata dual discovery, negative type tests)
@@ -45,7 +46,7 @@ and use RSD/RSB schema files.
 
 | What you want to test | Command |
 |-----------------------|---------|
-| Filters pushed to API correctly (WHERE clauses) | `/filter` |
+| Filters pushed to API correctly (WHERE clauses, incl. AND/OR combinations) | `/filter` |
 | OAuth / AuthScheme / PRP connection properties | `/auth` |
 | INSERT / UPDATE / DELETE operations | `/cud` |
 | Stored procedures (RSB files, endpoint routing) | `/sp` |
@@ -134,7 +135,7 @@ in this order within the same session.
 
 | Command | Workflow | File |
 |---------|----------|------|
-| `/filter` | Filter pushdown validation | `workflows/filter.md` |
+| `/filter` | Filter pushdown validation: per-column pushdown, multi-column AND/OR combination testing, RSD cross-check only if an RSD is provided (static `<table>.rsd`, semi-dynamic `<table>{internal}.rsd`; dynamic tables have no RSD) | `workflows/filter.md` |
 | `/auth` | AuthScheme + PRP validation | `workflows/auth.md` |
 | `/cud` | CUD testing (API drivers) | `workflows/cud.md` |
 | `/sp` | Stored procedure validation | `workflows/sp.md` |
