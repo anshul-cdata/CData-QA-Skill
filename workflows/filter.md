@@ -818,6 +818,31 @@ Also include these standard edge-case rows for every field regardless of semanti
 | E2 | Non-existent value   | `WHERE <Field> = '00000_does_not_exist'`              | 0 rows, no error |
 | E3 | Empty string         | `WHERE <Field> = ''`                                  | 0 rows or API error handled gracefully |
 
+#### Combination testing phase (multi-column AND / OR)
+
+After the single-column rows, add a **combination phase** to the query plan. Single-column tests prove each filter works alone; this phase proves they still work together and that the logical operators are handled correctly.
+
+**Inputs:** the set **S** of columns confirmed server-side filterable from §4d (API docs). If |S| < 2, write "Combination phase skipped — fewer than 2 server-side filterable columns" and move on. Otherwise, with e.g. 5 columns `colA…colE`, generate the combinations below. Use real values taken from the Phase 3 baseline so every combination is expected to return at least 1 row.
+
+| Group | What it tests | Example (S = colA, colB, colC, colD, colE) |
+|---|---|---|
+| **C1 — Pairwise AND** | Every pair in S combined with `AND` (n·(n-1)/2 queries, e.g. 10 for 5 cols) | `WHERE colA = 1 AND colB = 2` |
+| **C2 — Triple / all-column AND** | At least one 3-column AND and one AND across all of S | `WHERE colA = 1 AND colB = 2 AND colC = 'x'` |
+| **C3 — Pairwise OR** | Pairs combined with `OR` — most APIs cannot express OR, so expect partial/no pushdown | `WHERE colA = 1 OR colB = 2` |
+| **C4 — Mixed AND/OR** | Precedence and grouping | `WHERE (colA = 1 OR colA = 3) AND colB = 2` and `WHERE colA = 1 OR (colB = 2 AND colC = 'x')` |
+| **C5 — Server-side + non-server-side** | One pushed column with one column that is NOT server-side filterable (or not in the API docs) | `WHERE colA = 1 AND <nonFilterableCol> = 'y'` — the pushed part must go to the server, the rest must be applied client-side |
+| **C6 — Same column, multiple ops** | Range or multi-condition on one column combined with another column | `WHERE colA >= 1 AND colA <= 10 AND colB = 2` |
+| **C7 — Contradiction / no match** | Logic sanity | `WHERE colA = 1 AND colA = 2` → 0 rows, no error |
+
+For large S, do not enumerate every triple — run all pairs (C1), plus all-column AND, plus a representative sample of the others, and state which were sampled.
+
+Add combination rows to the plan table in the same format, numbered `C1.1`, `C1.2`, … with columns: `# | Columns | Operator | SQL Query | Expected in outgoing request | Expected result logic`.
+
+**Expected outgoing request per group:**
+- **AND of server-side filterable columns** — all conditions appear together in the single outgoing request (e.g. `?colA=1&colB=2`). If the API documents that it cannot combine those two params, expect one pushed and the other applied client-side — record it as documented.
+- **OR** — if the API has no OR syntax, the driver must NOT silently push only one side and drop the other (that returns wrong rows). Acceptable: no filter pushed and full client-side evaluation, or a documented API OR/`IN` form.
+- **Server-side + client-side mix** — only the server-side-capable condition appears in the request; the final result must still satisfy both conditions.
+
 Wait for the user to confirm the query plan before running Phase 5. If any row looks wrong (wrong test value, unsupported operator), correct it now.
 
 ---
@@ -921,6 +946,21 @@ The §4e query plan already includes E1–E3 edge case rows for every field. Run
 - **E1 NULL check** — `WHERE field IS NULL` — must not crash; if the API has no null-filter support, driver should handle client-side gracefully
 - **E2 Non-existent value** — `WHERE field = '00000_does_not_exist'` — must return 0 rows, not an error
 - **E3 Empty string** — `WHERE field = ''` — must return 0 rows or handle the API's response gracefully; must not throw an unhandled exception
+
+### 5d — Combination tests (AND / OR)
+
+Run every `C*` row from the §4e combination phase the same way as 5a (clear log, run, capture the outgoing request). For each, check **both** the request and the data:
+
+1. **Request check** — which conditions reached the server? Compare with the "Expected in outgoing request" for that row.
+2. **Logical correctness check (mandatory)** — verify every returned row actually satisfies the full WHERE clause. Compare the row count against the same query run with `LIMIT` removed or against the baseline filtered manually. Wrong rows = FAIL even if the request looked right.
+3. **Consistency check** — row count of `A AND B` must be ≤ min(count A, count B); `A OR B` must be ≥ max(count A, count B).
+
+| Result | Meaning |
+|---|---|
+| **PASS** | All pushable conditions are in the request, remaining conditions applied client-side, returned rows satisfy the full clause |
+| **PARTIAL** | Rows are correct but a pushable condition was evaluated client-side (missed pushdown opportunity) |
+| **FAIL** | Rows violate the WHERE clause, a condition was dropped (e.g. OR pushed as only one side), or the driver errored |
+| **DOCUMENTED LIMIT** | API docs state the params cannot be combined/OR'd, and the driver behaves accordingly |
 
 ---
 
