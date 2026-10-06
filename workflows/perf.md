@@ -225,11 +225,6 @@ data is already nested in the parent response body.
 IDs still get called.
 **Signal in log:** `WHERE Id=X` query produces multiple `GET /parent/{id}/child/{X}` calls,
 only one of which returns data.
-**Fix:** Break after first 200 OK non-empty. Use DP memoization pattern:
-```
-Before firing: check dp[table][id] → if true, skip
-After 200 OK:  set dp[table][id] = true
-```
 
 ---
 
