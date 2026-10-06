@@ -27,6 +27,7 @@ Ask for **all** of the following before writing any code:
 | **Connection string** | Full `jdbc:cdata:<driver>://<properties>` including auth |
 | **JAR folder path** | Folder with the driver `.jar` and `.lic` file |
 | **Table name** | Which table to validate |
+| **Baseline scope** | Ask together with the table name: *"Do you want the baseline to query **all** the data, or only the first **1000** rows?"* Recommend **1000** for large tables — it keeps the run fast and all filter tests are built from those rows. Store the answer as `BASELINE_MODE` = `FULL` or `SAMPLE_1000` (if the user gives another number, use it as the limit). |
 | **RSD folder** *(optional)* | Path to `.rsd` files for this table — used to cross-check column metadata |
 
 Verify the JAR folder:
@@ -125,15 +126,21 @@ function Run-Query([string]$tag, [string]$sql) {
 
 ## Phase 2 — SELECT * baseline
 
-Run a full `SELECT *` with no filters and capture the result as the **baseline**.
+Run `SELECT *` with no filters and capture the result as the **baseline**. The query depends on the `BASELINE_MODE` the user chose in Phase 0:
 
 ```sql
+-- BASELINE_MODE = FULL (user wants all the data)
 SELECT * FROM <TableName>
+
+-- BASELINE_MODE = SAMPLE_1000 (user wants up to 1000 records — recommended for large tables)
+SELECT * FROM <TableName> LIMIT 1000
 ```
+
+In `SAMPLE_1000` mode the 1000 returned rows are the baseline: all sample values, column inventory and filter tests in later phases are derived from them, so the run stays fast on large tables. Record the mode in the report header (`Baseline: FULL` / `Baseline: first 1000 rows`).
 
 From the result:
 1. Record **all column names** and their **data types** reported in `[HEADER]`.
-2. Record **baseline row count** from `[COUNT]`.
+2. Record **baseline row count** from `[COUNT]` (in `SAMPLE_1000` mode this is at most 1000 and is **not** the table's total size).
 3. Note any columns that are entirely `__NULL__` in the baseline — these will be skipped in
    operator tests but noted as "no live data observed".
 4. Pick up to **5 non-null sample values** per column for use in later phases.
@@ -171,7 +178,7 @@ Also run a multi-column projection to confirm column interaction:
 SELECT <KeyColumn>, <StringColumn>, <NumericColumn> FROM <TableName>
 ```
 
-Record for each column:
+In `SAMPLE_1000` mode, append `LIMIT 1000` to these queries so they are compared against the same rows. Record for each column:
 - Row count matches baseline → ✅ CONSISTENT
 - Row count differs → ❌ INCONSISTENCY (note the delta)
 - Column missing from result → ❌ MISSING COLUMN
@@ -264,6 +271,8 @@ If a data type exists in the schema but no test ran (no sample data), mark as
 ## Phase 5 — Validate results
 
 For every test query in Phase 4, check:
+
+> **`SAMPLE_1000` mode:** the baseline is a sample, not the whole table, so checks 2 and 3 below (count ≤ baseline, `=` + `!=` complement) are **not valid** — filtered queries run against the full table and can legitimately return more rows than the sample. In this mode: pick filter values from the sample, run each filtered query with `LIMIT 1000`, apply checks 1, 4, 5, 6 as normal, and replace checks 2–3 with a **containment check** — every baseline row that satisfies the predicate (evaluated locally on the sample) must also appear in the filtered result when it is run without `LIMIT`/with enough rows; a missing row = `❌ MISSING ROWS`. Mark checks 2–3 as `N/A (sample baseline)` in the report.
 
 1. **Return-value correctness** — does every returned row satisfy the WHERE condition?
    Check the actual values in `[ROW]` lines.
