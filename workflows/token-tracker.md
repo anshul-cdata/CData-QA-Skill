@@ -352,7 +352,7 @@ factual and brief — it should describe what ran, not repeat all the test outpu
 
 `Record-Usage` is the mechanism that guarantees every command is logged.
 It is called:
-- At the final step of every API driver workflow (`/filter`, `/auth`, `/cud`, `/sp`, `/general-testing`, `/perf`)
+- At the final step of every API driver workflow (`/filter`, `/auth`, `/cud`, `/sp`, `/general-testing`, `/perf`, `/usecase`)
 - At the final step of every DB driver workflow (all `/qpttrue` and `/qptfalse` operations) via the `db-shared-setup.md` shared `Record-Usage` definition
 
 If a workflow exits early (user cancels, destructive gate skipped, fatal error), Claude

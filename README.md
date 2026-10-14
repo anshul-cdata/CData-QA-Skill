@@ -53,6 +53,20 @@ scripts/lint.py   consistency checks
 CHANGELOG.md
 ```
 
+### Workflow files
+
+| Command | File |
+|---|---|
+| `/filter` | `workflows/filter.md` |
+| `/auth` | `workflows/auth.md` |
+| `/cud` | `workflows/cud.md` |
+| `/sp` | `workflows/sp.md` |
+| `/general-testing` | `workflows/general-testing.md` |
+| `/perf` | `workflows/perf.md` |
+| `/usecase` | `workflows/business-use-case-test.md` |
+| `/usage` | `workflows/token-tracker.md` |
+| `/qpttrue …`, `/qptfalse …` | `workflows/db-shared-setup.md` + `workflows/db-<create\|insert\|select\|update\|delete>-<qpt\|qptfalse>.md` |
+
 ## Checking changes
 
 ```bash
