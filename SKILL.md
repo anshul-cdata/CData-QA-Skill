@@ -15,6 +15,8 @@ description: >
     /general-testing — column/data validation: SELECT * baseline (all rows or first 1000), operators by data type,
                        optional target columns with all important operators
     /perf            — performance analysis: 15-check log pattern detection
+    /usecase         — business use-case tests: metadata + research -> natural-language questions -> SQL,
+                       validates driver request, server response and result
     /usage           — show cumulative token usage and cost report across all sessions (auto-logged per command; in-chat markdown summary + terminal box)
 
   DB driver commands — QPT=True (SQL forwarded verbatim to DB engine):
@@ -30,7 +32,7 @@ description: >
 
 # CData QA — Unified Skill
 
-> **Version:** 1.1.0 — see [CHANGELOG.md](CHANGELOG.md) for what changed.
+> **Version:** 1.2.0 — see [CHANGELOG.md](CHANGELOG.md) for what changed.
 
 ---
 
@@ -55,6 +57,7 @@ and use RSD/RSB schema files.
 | Stored procedures (RSB files, endpoint routing) | `/sp` |
 | Column data validation, all operators by type | `/general-testing` |
 | API call count, N+1, LIMIT pushdown, pagination | `/perf` |
+| Real-world customer / MCP questions for a table, end to end | `/usecase` |
 
 **Step 2 — Type the command**, e.g. `/filter`
 
@@ -144,6 +147,7 @@ in this order within the same session.
 | `/sp` | Stored procedure validation | `workflows/sp.md` |
 | `/general-testing` | General column/data validation — asks upfront for baseline scope (all data or first 1000 rows, recommended for large tables) and optional specific column(s) to test with all important operators; sample mode uses containment checks instead of count checks | `workflows/general-testing.md` |
 | `/perf` | Performance analysis | `workflows/perf.md` |
+| `/usecase` | Business use-case test — generates real-world questions + SQL for a table from its metadata and web research, runs them, validates request / response / result | `workflows/business-use-case-test.md` |
 | `/usage` | Token/cost usage report | Read `workflows/token-tracker.md`, run `Show-UsageReport`, then parse the `CLAUDE_USAGE_JSON:` line from output and present the in-chat markdown summary as described in that file. No Phase 0, no driver connection. |
 
 ### DB driver — QPT=True commands

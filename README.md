@@ -25,6 +25,7 @@ On Windows the user-level folder is `%USERPROFILE%\.claude\skills\cdata-qa`.
 | `/sp` | Stored procedures |
 | `/general-testing` | Column/data validation; baseline of all rows or first 1000; optional target columns |
 | `/perf` | Performance / log pattern analysis |
+| `/usecase` | Business use-case tests: table metadata + research → natural-language questions → SQL; validates request, response and result |
 | `/usage` | Token and cost report |
 
 | DB drivers | Commands |

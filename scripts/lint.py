@@ -39,7 +39,7 @@ for name, p in wf.items():
         # only flag if the file has phases at all
         if declared:
             warnings.append(f"{name}: references Phase {ref} but no heading declares it")
-    for sec in set(re.findall(r"§(\d+[a-z]\b)", text)):
+    for sec in set(re.findall(r"(?<!\.md` )(?<!\.md )§(\d+[a-z]\b)", text)):
         if not re.search(rf"^#{{2,5}} {re.escape(sec)}\b", text, re.M):
             warnings.append(f"{name}: references §{sec} but no '### {sec}' heading found")
 

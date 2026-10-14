@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.0
+- New `/usecase` workflow (`workflows/business-use-case-test.md`): reads `sys_tablecolumns`, researches customer scenarios (≤3 searches), generates 10–12 natural-language questions with SQL, runs them via the driver and validates request (pushdown, projection, LIMIT, paging, call count), server response and result. Token-efficient by design.
+
 ## 1.1.0
 ### `/filter`
 - Phase 3c (RSD extraction) and Phase 3d (RSD validation) now run only when the user provides an RSD. Dynamic tables have no RSD; semi-dynamic tables use `<table>{internal}.rsd`.
