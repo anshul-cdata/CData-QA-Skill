@@ -4,7 +4,8 @@ description: >
   Unified CData JDBC driver QA skill covering both API-backed and database-backed drivers.
   Triggers on any /command below, or when user mentions a workflow by name (e.g. "run filter
   pushdown", "test auth", "CUD testing", "stored procedure QA", "column validation",
-  "performance analysis", "QueryPassThrough", "db driver testing", "QPT testing").
+  "performance analysis", "business use case", "customer scenarios", "MCP test cases",
+  "QueryPassThrough", "db driver testing", "QPT testing").
 
   API driver commands (REST/SOAP sources):
     /filter          — server-side filter pushdown validation (single-column + AND/OR combination testing;
@@ -64,7 +65,7 @@ and use RSD/RSB schema files.
 **Step 3 — Claude will ask for:**
 - Connection string: `jdbc:cdata:<driver>://<auth_properties>`
 - JAR folder path (must contain `.jar` + `.lic`)
-- Any workflow-specific inputs (table name, RSB folder, etc.)
+- Any workflow-specific inputs (table name, RSB folder, etc.) — e.g. `/usecase` asks for one table, plus optional business context, test-case count and row limit
 
 **Step 4 — Claude runs everything autonomously** and prints a report.
 
@@ -215,6 +216,8 @@ The `Record-Usage` function:
 - **No re-fetching:** Never re-fetch a URL already retrieved in this session.
 - **OpenAPI/Swagger specs:** Search for the endpoint's parameters first. If the snippet has the param list — stop, do not fetch the spec file. If the snippet is insufficient, fetch only the matching `paths` block for that endpoint, not the full spec.
 
+`/usecase` research is capped at **3 searches** per run (see `workflows/business-use-case-test.md` Phase 2) and follows the same snippet-first rule.
+
 This rule overrides any instruction inside a workflow file that says "fetch the documentation page", "fetch the spec file directly", or similar — treat those as "search for and extract the relevant section using the built-in search."
 
 ### 4. Required param client-side enforcement (SP and CUD workflows)
@@ -230,7 +233,7 @@ in the log for these cases is a bug to file.
 1. **Detect the command** — match `/command` at the start of the message (case-insensitive).
    If absent but the user describes a workflow by name, map to the nearest command and confirm.
 
-2. **API commands** — read the single matching `workflows/<name>.md` and follow its Phase 0. Execute all phases inline as Claude — do NOT spawn a subagent or use SubagentHandback. All web searches and file reads must run in the current Claude context.
+2. **API commands** (`/filter`, `/auth`, `/cud`, `/sp`, `/general-testing`, `/perf`, `/usecase`) — read the single matching `workflows/<name>.md` (for `/usecase`: `workflows/business-use-case-test.md`) and follow its Phase 0. Execute all phases inline as Claude — do NOT spawn a subagent or use SubagentHandback. All web searches and file reads must run in the current Claude context.
 
 3. **DB commands** — always read `workflows/db-shared-setup.md` first (defines `$testTable`,
    `$typeMap`, `Run-DB`, `Add-Result`, `Cleanup-TestTable`), then read the matching
@@ -258,4 +261,6 @@ in the log for these cases is a bug to file.
 - **Fresh log per probe**: unique log file per test case, never reused.
 - **BOM-safe Java writes** (PowerShell): `[System.IO.File]::WriteAllText(..., [System.Text.Encoding]::ASCII)`.
 - **Autonomous execution**: run all commands yourself; never show commands for the user to run.
+- **Plan-approval gate**: `/filter` (query plan) and `/usecase` (test plan) show their plan and wait for the user's confirmation before running anything; every other step runs autonomously.
+- **Read-only workflows**: `/usecase`, `/filter`, `/general-testing` and `/perf` run `SELECT` only.
 - **Destructive tests gated**: no-WHERE UPDATE/DELETE skipped unless `$userConfirmedDestructive=$true`.

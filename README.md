@@ -33,7 +33,16 @@ On Windows the user-level folder is `%USERPROFILE%\.claude\skills\cdata-qa`.
 | QPT=True | `/qpttrue create \| insert \| select \| update \| delete` |
 | QPT=False | `/qptfalse create \| insert \| select \| update \| delete` |
 
-`SKILL.md` is the entry point; each command's workflow lives in `workflows/`.
+`SKILL.md` is the entry point; each command's workflow lives in `workflows/` (e.g. `workflows/business-use-case-test.md` for `/usecase`).
+
+## Example: `/usecase`
+
+```
+/usecase
+> Connection string, JAR folder, table: Accounts
+```
+
+Claude reads the table's metadata (`sys_tablecolumns`), researches how customers use this entity (max 3 searches), and proposes 10–12 questions with SQL, e.g. *"Which accounts are deactivated?"* → `SELECT Id, Name, Status FROM Accounts WHERE Status = 'deactivated' LIMIT 50`. After you approve the plan it runs each query and checks the driver's request (pushdown, projection, LIMIT, paging, call count), the server's response, and the returned rows.
 
 ## Layout
 
